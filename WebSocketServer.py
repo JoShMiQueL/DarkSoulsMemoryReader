@@ -7,7 +7,6 @@ class WebSocketServer:
 
   async def handler(self, websocket, path):
     self.clients.add(websocket)
-    print(f"New connection from {path}")
     try:
       async for message in websocket:
         pass
@@ -17,7 +16,6 @@ class WebSocketServer:
   async def broadcast(self, message):
     if self.clients:
       await asyncio.wait([asyncio.create_task(client.send(message)) for client in self.clients])
-      print("Message sended to clients!")
 
   async def start(self, host='localhost', port=8765):
     async with websockets.serve(self.handler, host, port):
