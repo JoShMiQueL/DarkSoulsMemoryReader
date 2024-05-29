@@ -1,16 +1,21 @@
+import asyncio
+import json
 import os
 import time
 from pymem import Pymem
 import pymem
 
+from WebSocketServer import WebSocketServer
 from utils import getPointerAddress
 
 class GameReader:
   __memory: Pymem
   __prev_state: dict = {}
   __curr_state = __prev_state
+  __websocket_server: WebSocketServer
 
-  def __init__(self):
+  def __init__(self, websocket_server: WebSocketServer):
+    self.__websocket_server = websocket_server
     try:
       self.__memory = Pymem("DarkSoulsRemastered")
     except pymem.exception.CouldNotOpenProcess:
@@ -65,13 +70,14 @@ class GameReader:
     else:
         return current_state, False
   
-  def __state_monitor(self):
+  async def __state_monitor(self):
     while True:
-        self.__curr_state = self.__detect_state_change(self.__prev_state)
-        if (self.__curr_state[1] == True):
-            print("State has changed!", self.__curr_state[0])
-            self.__prev_state = self.__curr_state[0]
-        time.sleep(.01)
+      self.__curr_state = self.__detect_state_change(self.__prev_state)
+      if (self.__curr_state[1] == True):
+        print("State has changed!", self.__curr_state[0])
+        self.__prev_state = self.__curr_state[0]
+        await self.__websocket_server.broadcast(json.dumps(self.__curr_state[0]))
+      await asyncio.sleep(0.01)
   
-  def start(self):
-     self.__state_monitor()
+  async def start(self):
+     await self.__state_monitor()
