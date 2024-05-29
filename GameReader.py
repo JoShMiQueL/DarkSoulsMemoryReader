@@ -66,9 +66,9 @@ class GameReader:
   def __detect_state_change(self, prev_state: dict) -> tuple:
     current_state = self.__read_state()
     if current_state != prev_state:
-        return current_state, True
+      return current_state, True
     else:
-        return current_state, False
+      return current_state, False
   
   async def __state_monitor(self):
     while True:
@@ -76,7 +76,8 @@ class GameReader:
       if (self.__curr_state[1] == True):
         print("State has changed!", self.__curr_state[0])
         self.__prev_state = self.__curr_state[0]
-        await self.__websocket_server.broadcast(json.dumps(self.__curr_state[0]))
+        self.__websocket_server.prev_state = self.__prev_state
+        await self.__websocket_server.broadcast(json.dumps(self.__prev_state))
       await asyncio.sleep(0.01)
   
   async def start(self):

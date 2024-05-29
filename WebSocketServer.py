@@ -1,13 +1,16 @@
 import asyncio
+import json
 import websockets
 
 class WebSocketServer:
   def __init__(self):
+    self.prev_state = None
     self.clients = set()
 
-  async def handler(self, websocket, path):
+  async def handler(self, websocket):
     self.clients.add(websocket)
     try:
+      await self.broadcast(json.dumps(self.prev_state))
       async for message in websocket:
         pass
     finally:
