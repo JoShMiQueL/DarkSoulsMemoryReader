@@ -1,4 +1,5 @@
 import asyncio
+from enum import Enum
 import json
 import os
 import time
@@ -7,6 +8,12 @@ import pymem
 
 from WebSocketServer import WebSocketServer
 from utils import getPointerAddress
+
+class ValueName(Enum):
+    HP = "hp"
+    IN_GAME = "inGame"
+    IN_LOADING_SCREEN = "inLoadingScreen"
+    IS_ALIVE = "isAlive"
 
 class GameReader:
   __memory: Pymem
@@ -29,10 +36,10 @@ class GameReader:
       os._exit(1)
   
   def __read_state(self):
-    inGame = self.__read_value("inGame")
-    hp = self.__read_value("hp")
-    inLoadingScreen = self.__read_value("inLoadingScreen")
-    isAlive = self.__read_value("isAlive")
+    inGame = self.__read_value(ValueName.IN_GAME)
+    hp = self.__read_value(ValueName.HP)
+    inLoadingScreen = self.__read_value(ValueName.IN_LOADING_SCREEN)
+    # isAlive = self.__read_value(ValueName.IS_ALIVE)
 
     state = {
       "inGame": inGame,
@@ -42,19 +49,18 @@ class GameReader:
 
     return state
 
-  def __read_value(self, value_name):
+  def __read_value(self, value_name: ValueName):
     try:
-        if value_name == "hp":
-            baseAddress = self.__memory.base_address
+        baseAddress = self.__memory.base_address
+        if value_name == value_name.HP:
             value = self.__memory.read_int(getPointerAddress(self.__memory, baseAddress + 0x01ACD758, [0, 0x3E8]))
             value = value if not value <= 0 else 0 # If hp has negative values return 0
-        elif value_name == "inGame":
-            baseAddress = self.__memory.base_address
+        elif value_name == value_name.IN_GAME:
             value = self.__memory.read_bool(baseAddress + 0x1D260A8)
-        elif value_name == "inLoadingScreen":
-            value = self.__read_value("inGame") and (self.__read_value("hp") is None)
-        elif value_name == "isAlive":
-            value = self.__read_value("inGame") and (not self.__read_value("hp") <= 0)
+        elif value_name == value_name.IN_LOADING_SCREEN:
+            value = self.__read_value(value_name.IN_GAME) and (self.__read_value(value_name.HP) is None)
+        elif value_name == value_name.IS_ALIVE:
+            value = self.__read_value(value_name.IN_GAME) and (not self.__read_value(value_name.HP) <= 0)
         else:
             raise ValueError(f"Invalid value name: {value_name}")
     except Exception as e:
