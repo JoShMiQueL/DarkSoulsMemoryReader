@@ -77,7 +77,7 @@ class GameReader:
         elif value_name == GameData.SOULS:
             value = self.__get_offset_value(Offsets.SOULS_OFFSET)
         elif value_name == GameData.IN_GAME:
-            value = self.__get_offset_value(Offsets.IN_GAME_OFFSET)
+            value = self.__get_offset_value(Offsets.IN_GAME_OFFSET, bool)
         elif value_name == GameData.IN_LOADING_SCREEN:
             value = self.__read_value(GameData.IN_GAME) and (self.__read_value(GameData.HP) is None)
         elif value_name == GameData.IS_ALIVE:
@@ -107,7 +107,7 @@ class GameReader:
         await self.__websocket_server.broadcast(json.dumps(self.__prev_state))
       await asyncio.sleep(0.01)
   
-  def __get_offset_value(self, ptrAddress: List[int] | int, type: int | float | str = int):
+  def __get_offset_value(self, ptrAddress: List[int] | int, type: int | float | bool | str = int):
     addr = 0
     if isinstance(ptrAddress, int):
       addr = self.__memory.base_address + ptrAddress
@@ -120,6 +120,8 @@ class GameReader:
       return self.__memory.read_int(addr)
     elif type == float:
       return self.__memory.read_float(addr)
+    elif type == bool:
+      return self.__memory.read_bool(addr)
     elif type == str:
       return self.__memory.read_string(addr)
     
