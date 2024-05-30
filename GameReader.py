@@ -2,18 +2,13 @@ import asyncio
 from enum import Enum
 import json
 import os
-import time
+from typing import List
 from pymem import Pymem
 import pymem
 
+from Offsets import GameData, Offsets
 from WebSocketServer import WebSocketServer
 from utils import getPointerAddress
-
-class ValueName(Enum):
-    HP = "hp"
-    IN_GAME = "inGame"
-    IN_LOADING_SCREEN = "inLoadingScreen"
-    IS_ALIVE = "isAlive"
 
 class GameReader:
   __memory: Pymem
@@ -36,31 +31,57 @@ class GameReader:
       os._exit(1)
   
   def __read_state(self):
-    inGame = self.__read_value(ValueName.IN_GAME)
-    hp = self.__read_value(ValueName.HP)
-    inLoadingScreen = self.__read_value(ValueName.IN_LOADING_SCREEN)
-    # isAlive = self.__read_value(ValueName.IS_ALIVE)
+    inGame = self.__read_value(GameData.IN_GAME)
+    inLoadingScreen = self.__read_value(GameData.IN_LOADING_SCREEN)
+    # isAlive = self.__read_value(GameData.IS_ALIVE)
+    hp = self.__read_value(GameData.HP)
+    maxHp = self.__read_value(GameData.MAX_HP)
+    stamina = self.__read_value(GameData.STAMINA) 
+    maxStamina = self.__read_value(GameData.MAX_STAMINA)
+    level = self.__read_value(GameData.LEVEL)
+    souls = self.__read_value(GameData.SOULS)
 
     state = {
       "inGame": inGame,
       "inLoadingScreen": inLoadingScreen,
-      "hp": hp,
+      "level": level,
+      "souls": souls,
+      "hp": {
+         "current": hp,
+         "max": maxHp
+      },
+      "stamina": {
+         "current": stamina,
+         "max": maxStamina
+      }
     }
 
     return state
 
-  def __read_value(self, value_name: ValueName):
+  def __read_value(self, value_name: GameData):
     try:
         baseAddress = self.__memory.base_address
-        if value_name == value_name.HP:
-            value = self.__memory.read_int(getPointerAddress(self.__memory, baseAddress + 0x01ACD758, [0, 0x3E8]))
+        playerPtr = self.__get_offset_value(Offsets.PLAYER_PTR)
+        gameDataManagerPtr = self.__get_offset_value(Offsets.GAME_DATA_MANAGER_PTR)
+        if value_name == GameData.HP:
+            value = self.__get_offset_value(Offsets.HP_OFFSET)
             value = value if not value <= 0 else 0 # If hp has negative values return 0
-        elif value_name == value_name.IN_GAME:
-            value = self.__memory.read_bool(baseAddress + 0x1D260A8)
-        elif value_name == value_name.IN_LOADING_SCREEN:
-            value = self.__read_value(value_name.IN_GAME) and (self.__read_value(value_name.HP) is None)
-        elif value_name == value_name.IS_ALIVE:
-            value = self.__read_value(value_name.IN_GAME) and (not self.__read_value(value_name.HP) <= 0)
+        elif value_name == GameData.MAX_HP:
+            value = self.__get_offset_value(Offsets.MAX_HP_OFFSET)
+        elif value_name == GameData.STAMINA:
+            value = self.__get_offset_value(Offsets.STAMINA_OFFSET)
+        elif value_name == GameData.MAX_STAMINA:
+            value = self.__get_offset_value(Offsets.MAX_STAMINA_OFFSET)
+        elif value_name == GameData.LEVEL:
+            value = self.__get_offset_value(Offsets.LEVEL_OFFSET)
+        elif value_name == GameData.SOULS:
+            value = self.__get_offset_value(Offsets.SOULS_OFFSET)
+        elif value_name == GameData.IN_GAME:
+            value = self.__get_offset_value(Offsets.IN_GAME_OFFSET)
+        elif value_name == GameData.IN_LOADING_SCREEN:
+            value = self.__read_value(GameData.IN_GAME) and (self.__read_value(GameData.HP) is None)
+        elif value_name == GameData.IS_ALIVE:
+            value = self.__read_value(GameData.IN_GAME) and (not self.__read_value(GameData.HP) <= 0)
         else:
             raise ValueError(f"Invalid value name: {value_name}")
     except Exception as e:
@@ -86,5 +107,21 @@ class GameReader:
         await self.__websocket_server.broadcast(json.dumps(self.__prev_state))
       await asyncio.sleep(0.01)
   
+  def __get_offset_value(self, ptrAddress: List[int] | int, type: int | float | str = int):
+    addr = 0
+    if isinstance(ptrAddress, int):
+      addr = self.__memory.base_address + ptrAddress
+    elif len(ptrAddress) == 1:
+      addr = self.__memory.base_address + ptrAddress[0]
+    else:
+      addr = getPointerAddress(self.__memory, self.__memory.base_address + ptrAddress[0], ptrAddress[1:])
+
+    if type == int:
+      return self.__memory.read_int(addr)
+    elif type == float:
+      return self.__memory.read_float(addr)
+    elif type == str:
+      return self.__memory.read_string(addr)
+    
   async def start(self):
      await self.__state_monitor()
